@@ -1,7 +1,12 @@
+# Simple Kociemba's Algorithm Implementation
+
+import time
+
 #================== CUBE ===================
 #Edge order: UR,   UF,   UL,   UB,   DR ,  DF,   DL,   DB,   FR,   FL,   BL,   BR
 #Corner order: URF,  UFL,  ULB,  UBR,  DFR,  DLF,  DBL,  DRB
 turns = [
+	#Edge permutation                         Edge Orientation                       Corner Permutation         Corner Orientation
 	[3, 0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11,    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,    3, 0, 1, 2, 4, 5, 6, 7,    0, 0, 0, 0, 0, 0, 0, 0],   #U	0
 	[2, 3, 0, 1, 4, 5, 6, 7, 8, 9, 10, 11,    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,    2, 3, 0, 1, 4, 5, 6, 7,    0, 0, 0, 0, 0, 0, 0, 0],   #U2	1
 	[1, 2, 3, 0, 4, 5, 6, 7, 8, 9, 10, 11,    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,    1, 2, 3, 0, 4, 5, 6, 7,    0, 0, 0, 0, 0, 0, 0, 0],   #U'	2
@@ -42,7 +47,7 @@ def cube_print(cube):
 	for i in range(40):
 		out += str(cube[i]).zfill(2) + " "
 
-		if i == 11 or i == 31: out += "    "
+		if (i == 11 or i == 31): out += "    "
 		elif i == 23: out += "\n"
 
 	out += "\n----"
@@ -50,8 +55,7 @@ def cube_print(cube):
 
 def cube_equals(a, b):
 	for i in range(40):
-		if a[i] != b[i]:
-			return False
+		if a[i] != b[i]: return False
 
 	return True
 
@@ -98,7 +102,6 @@ def turns_to_string(sequence):
 			case 3: result += "D"
 			case 4: result += "L"
 			case 5: result += "B"
-			
 		match sequence[i] % 3:
 			case 1: result += "2"
 			case 2: result += "\'"
@@ -117,9 +120,7 @@ def cancel_turns(sequence):
 			i += 1
 			# Put parallel sides in ascending order of face index, so that U D U -> U U D -> handled later
 			if result[i]//3 + 3 == result[i + 1]//3: 
-				temp = result[i]
-				result[i] = result[i + 1]
-				result[i + 1] = temp
+				result[i], result[i+1] = result[i+1], result[i]
 				collapsed = True
 				continue
 
@@ -128,14 +129,14 @@ def cancel_turns(sequence):
 				face = result[i]//3
 				new_turn_size = ((result[i] % 3) + (result[i + 1] % 3) + 1) % 4
 				del result[i]
-				if new_turn_size == 3: 
-					del result[i] # Turns completely cancelled out (3 is not possible since turns are mod 3)
-				else:
-					result[i] = face * 3 + new_turn_size
+				if new_turn_size == 3: del result[i] # If the 2 turns cancelled out, delete both turns
+				else: result[i] = face * 3 + new_turn_size # Replace the 2 turns with one turn
+
 				collapsed = True
 				continue
 	return result
 	
+
 #================== COORDINATES ===================
 
 #=== Phase One Coordinates ===
@@ -147,13 +148,11 @@ def get_eo(cube):
 	return eo
 
 def set_eo(cube, eo):
-	parity = 0
+	cube[23] = 0
 	for i in range(11):
-		cube[12 + (10 - i)] = eo % 2
-		parity += eo % 2
+		cube[22 - i] = eo % 2
+		cube[23] = (cube[23] + eo) % 2
 		eo = eo // 2
-	
-	cube[12 + 11] = parity % 2
 
 #CO is corner orientation: 0 -> 2186 (3^7 - 1)
 def get_co(cube):
@@ -171,20 +170,7 @@ def set_co(cube, co):
 	cube[39] = (900 - parity) % 3
 	
 # Choose function look-up table up to n = 12
-nCr = [
-	1,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,
-	1,      1,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,
-	1,      2,      1,      0,      0,      0,      0,      0,      0,      0,      0,      0,
-	1,      3,      3,      1,      0,      0,      0,      0,      0,      0,      0,      0,
-	1,      4,      6,      4,      1,      0,      0,      0,      0,      0,      0,      0,
-	1,      5,      10,     10,     5,      1,      0,      0,      0,      0,      0,      0,
-	1,      6,      15,     20,     15,     6,      1,      0,      0,      0,      0,      0,
-	1,      7,      21,     35,     35,     21,     7,      1,      0,      0,      0,      0,
-	1,      8,      28,     56,     70,     56,     28,     8,      1,      0,      0,      0,
-	1,      9,      36,     84,     126,    126,    84,     36,     9,      1,      0,      0,
-	1,      10,     45,     120,    210,    252,    210,    120,    45,     10,     1,      0,
-	1,      11,     55,     165,    330,    462,    462,    330,    165,    55,     11,     1,
-];
+nCk = [1,0,0,0,0,0,0,0,0,0,0,0, 1,1,0,0,0,0,0,0,0,0,0,0, 1,2,1,0,0,0,0,0,0,0,0,0, 1,3,3,1,0,0,0,0,0,0,0,0, 1,4,6,4,1,0,0,0,0,0,0,0, 1,5,10,10,5,1,0,0,0,0,0,0, 1,6,15,20,15,6,1,0,0,0,0,0, 1,7,21,35,35,21,7,1,0,0,0,0, 1,8,28,56,70,56,28,8,1,0,0,0, 1,9,36,84,126,126,84,36,9,1,0,0, 1,10,45,120,210,252,210,120,45,10,1,0, 1,11,55,165,330,462,462,330,165,55,11,1]
 
 #UDS is position of UD-Slice Edges: 0 -> 494 (12 choose 4 - 1)
 #Only ensures UD-Slice Edges get into the UD-Slice, not necessarily permuted
@@ -194,25 +180,24 @@ def get_uds(cube):
 	k = 3
 	n = 11
 	while k >= 0:
-		if cube[n] >= 8: #UD-Slice edge
-			k -= 1
-		else:
-			uds += nCr[n * 12 + k]
+		if cube[n] >= 8: k -= 1 #UD-Slice edge
+		else: uds += nCk[n * 12 + k]
 		n -= 1
 	return uds
 
 #https://github.com/hkociemba/CubeExplorer/blob/5cfee2297736ab56e8c615d4061cd433a56746d0/CubiCube.pas#L504
 def set_uds(cube, uds):
-	occupied = [False, False, False, False, False, False, False, False, False, False, False, False]
+	occupied = [False for i in range(12)]
 	n = 11
 	k = 3
 	while k >= 0:
-		v = nCr[n * 12 + k]
+		v = nCk[n * 12 + k]
 		if uds < v:
 			k -= 1
 			occupied[n] = True
-		else:
+		else: 
 			uds -= v
+
 		n -= 1
 	UDSliceEdge = 8
 	for edge in range(12):
@@ -233,28 +218,25 @@ def get_ep8(cube):
 	for i in reversed(range(1,8)):
 		s = 0
 		for j in reversed(range(0, i)):
-			if cube[j] > cube[i]:
-				s += 1
+			if (cube[j] > cube[i]): s += 1
 		ep8 = (ep8 + s) * i
 	return ep8
 
 def set_ep8(cube, ep8):
-	used = [False, False, False, False, False, False, False, False]
-	order = [-1, -1, -1, -1, -1, -1, -1, -1]
+	used = [False for i in range(8)]
+	order = [-1 for i in range(8)]
 	for i in range(8):
 		used[i] = False
 		order[i] = ep8 % (i + 1)
 		ep8 = ep8 // (i + 1)
+
 	for i in reversed(range(8)):
 		k = 7
-		while used[k]:
-			k -= 1
-
+		while used[k]: k -= 1
 		while order[i] > 0:
 			order[i] -= 1
 			k -= 1
-			while used[k]:
-				k -= 1
+			while used[k]: k -= 1
 		cube[i] = k
 		used[k] = True
 
@@ -264,18 +246,19 @@ def get_cp(cube):
 	for i in reversed(range(1,8)):
 		s = 0
 		for j in reversed(range(0, i)):
-			if cube[24 + j] > cube[24 + i]:
-				s += 1
+			if (cube[24 + j] > cube[24 + i]): s += 1
+
 		cp = (cp + s) * i
 	return cp
 
 def set_cp(cube, cp):
-	used = [False, False, False, False, False, False, False, False]
-	order = [-1, -1, -1, -1, -1, -1, -1, -1]
+	used = [False for i in range(8)]
+	order = [-1 for i in range(8)]
 	for i in range(8):
 		used[i] = False
 		order[i] = cp % (i + 1)
 		cp = cp // (i + 1)
+		
 	for i in reversed(range(8)):
 		k = 7
 		while used[k]:
@@ -295,28 +278,28 @@ def get_ep4(cube):
 	for i in reversed(range(1,4)):
 		s = 0
 		for j in reversed(range(0, i)):
-			if cube[8 + j] > cube[8 + i]:
-				s += 1
+			if (cube[8 + j] > cube[8 + i]): s += 1
+
 		ep4 = (ep4 + s) * i
 	return ep4
 
 def set_ep4(cube, ep4):
-	used = [False, False, False, False]
-	order = [-1, -1, -1, -1]
+	used = [False for i in range(4)]
+	order = [-1 for i in range(4)]
 	for i in range(4):
 		used[i] = False
 		order[i] = ep4 % (i + 1)
 		ep4 = ep4 // (i + 1)
+
 	for i in reversed(range(4)):
 		k = 3
-		while used[k]:
-			k -= 1
+		while used[k]: k -= 1
 
 		while order[i] > 0:
 			order[i] -= 1
 			k -= 1
-			while used[k]:
-				k -= 1
+			while used[k]: k -= 1
+
 		cube[8 + i] = 8 + k
 		used[k] = True
 
@@ -390,6 +373,7 @@ p2_moves = [0, 1, 2, 4, 7, 9, 10, 11, 13, 16]
 p2_moves_inverted = [2, 1, 0, 3, 4, 7, 6, 5, 8, 9]
 
 print("Generating tables...");
+start = time.time()
 eo_move_table = generate_move_table(2048, get_eo, set_eo, p1_moves, p1_moves_inverted)
 co_move_table = generate_move_table(2187, get_co, set_co, p1_moves, p1_moves_inverted)
 uds_move_table = generate_move_table(495, get_uds, set_uds, p1_moves, p1_moves_inverted)
@@ -401,6 +385,8 @@ cp_move_table = generate_move_table(40320, get_cp, set_cp, p2_moves, p2_moves_in
 ep4_move_table = generate_move_table(24, get_ep4, set_ep4, p2_moves, p2_moves_inverted)
 ep8_ep4_prune_table = generate_prune_table(ep8_move_table, 40320, ep4_move_table, 24, len(p2_moves))
 cp_ep4_prune_table = generate_prune_table(cp_move_table, 40320, ep4_move_table, 24, len(p2_moves))
+end = time.time()
+print("Took " + str(round(end-start, 1)) + " seconds");
 
 
 #================== SOLVER ===================
