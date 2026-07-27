@@ -1,5 +1,4 @@
 # Simple Kociemba's Algorithm Implementation
-
 import time
 
 #================== CUBE ===================
@@ -35,6 +34,22 @@ def cube_mult(a, b):
 		result[i] = a[b[i]]
 		result[12 + i] = (b[12 + i] + a[12 + b[i]]) % 2
 		
+	for i in range(8):
+		result[24 + i] = a[24 + b[24 + i]]
+		result[32 + i] = (a[32 + b[24 + i]] + b[32 + i]) % 3
+
+	return result
+
+def cube_mult_edges(a, b):
+	result = [0 for i in range(40)]
+	for i in range(12):
+		result[i] = a[b[i]]
+		result[12 + i] = (b[12 + i] + a[12 + b[i]]) % 2
+
+	return result
+
+def cube_mult_corns(a, b):
+	result = [0 for i in range(40)]
 	for i in range(8):
 		result[24 + i] = a[24 + b[24 + i]]
 		result[32 + i] = (a[32 + b[24 + i]] + b[32 + i]) % 3
@@ -148,11 +163,12 @@ def get_eo(cube):
 	return eo
 
 def set_eo(cube, eo):
-	cube[23] = 0
+	total = 0
 	for i in range(11):
 		cube[22 - i] = eo % 2
-		cube[23] = (cube[23] + eo) % 2
+		total += eo % 2
 		eo = eo // 2
+	cube[23] = total % 2
 
 #CO is corner orientation: 0 -> 2186 (3^7 - 1)
 def get_co(cube):
@@ -162,12 +178,12 @@ def get_co(cube):
 	return co
 
 def set_co(cube, co):
-	parity = 0
+	total = 0
 	for i in range(7):
 		cube[38 - i] = co % 3
-		parity += co % 3
+		total += co % 3
 		co = co // 3
-	cube[39] = (900 - parity) % 3
+	cube[39] = (-total) % 3
 	
 # Choose function look-up table up to n = 12
 nCk = [1,0,0,0,0,0,0,0,0,0,0,0, 1,1,0,0,0,0,0,0,0,0,0,0, 1,2,1,0,0,0,0,0,0,0,0,0, 1,3,3,1,0,0,0,0,0,0,0,0, 1,4,6,4,1,0,0,0,0,0,0,0, 1,5,10,10,5,1,0,0,0,0,0,0, 1,6,15,20,15,6,1,0,0,0,0,0, 1,7,21,35,35,21,7,1,0,0,0,0, 1,8,28,56,70,56,28,8,1,0,0,0, 1,9,36,84,126,126,84,36,9,1,0,0, 1,10,45,120,210,252,210,120,45,10,1,0, 1,11,55,165,330,462,462,330,165,55,11,1]
@@ -305,7 +321,7 @@ def set_ep4(cube, ep4):
 
 		
 #================== TABLES ===================
-def generate_move_table(coord_count, get_coord, set_coord, allowed_moves, inverted_moves):
+def generate_move_table(coord_count, get_coord, set_coord, allowed_moves, inverted_moves, is_corners):
 	#2D array that takes a coordinate and a turn, and says which new coordinate it goes to
 	table = [[99999999 for i in range(len(allowed_moves))] for j in range(coord_count)]
 	cube = solved_cube.copy()
@@ -317,8 +333,12 @@ def generate_move_table(coord_count, get_coord, set_coord, allowed_moves, invert
 		cube_copy = cube.copy()
 		for turn_index in range(len(allowed_moves)):
 			if table[coord][turn_index] != 99999999: continue
-			
-			cube = cube_mult(cube, turns[allowed_moves[turn_index]])
+
+			if is_corners:
+				cube = cube_mult_corns(cube, turns[allowed_moves[turn_index]])
+			else:
+				cube = cube_mult_edges(cube, turns[allowed_moves[turn_index]])
+
 			new_coord = get_coord(cube)
 			table[coord][turn_index] = new_coord
 			# Doing the opposite move to the new coord will lead back to the original coord
@@ -372,26 +392,26 @@ p1_moves_inverted = [2, 1, 0, 5, 4, 3, 8, 7, 6, 11, 10, 9, 14, 13, 12, 17, 16, 1
 p2_moves = [0, 1, 2, 4, 7, 9, 10, 11, 13, 16]
 p2_moves_inverted = [2, 1, 0, 3, 4, 7, 6, 5, 8, 9]
 
-print("Generating tables...");
+print("Generating tables...")
 start = time.time()
-eo_move_table = generate_move_table(2048, get_eo, set_eo, p1_moves, p1_moves_inverted)
-co_move_table = generate_move_table(2187, get_co, set_co, p1_moves, p1_moves_inverted)
-uds_move_table = generate_move_table(495, get_uds, set_uds, p1_moves, p1_moves_inverted)
+eo_move_table = generate_move_table(2048, get_eo, set_eo, p1_moves, p1_moves_inverted, False)
+co_move_table = generate_move_table(2187, get_co, set_co, p1_moves, p1_moves_inverted, True)
+uds_move_table = generate_move_table(495, get_uds, set_uds, p1_moves, p1_moves_inverted, False)
 eo_uds_prune_table = generate_prune_table(eo_move_table, 2048, uds_move_table, 495, len(p1_moves))
 co_uds_prune_table = generate_prune_table(co_move_table, 2187, uds_move_table, 495, len(p1_moves))
 
-ep8_move_table = generate_move_table(40320, get_ep8, set_ep8, p2_moves, p2_moves_inverted)
-cp_move_table = generate_move_table(40320, get_cp, set_cp, p2_moves, p2_moves_inverted)
-ep4_move_table = generate_move_table(24, get_ep4, set_ep4, p2_moves, p2_moves_inverted)
+ep8_move_table = generate_move_table(40320, get_ep8, set_ep8, p2_moves, p2_moves_inverted, False)
+cp_move_table = generate_move_table(40320, get_cp, set_cp, p2_moves, p2_moves_inverted, True)
+ep4_move_table = generate_move_table(24, get_ep4, set_ep4, p2_moves, p2_moves_inverted, False)
 ep8_ep4_prune_table = generate_prune_table(ep8_move_table, 40320, ep4_move_table, 24, len(p2_moves))
 cp_ep4_prune_table = generate_prune_table(cp_move_table, 40320, ep4_move_table, 24, len(p2_moves))
 end = time.time()
-print("Took " + str(round(end-start, 1)) + " seconds");
+print("Took " + str(round(end-start, 1)) + " seconds")
 
 
 #================== SOLVER ===================
 lowest_pruned = 99999999
-threshold = 2
+threshold = 0
 result = [0 for i in range(20)]
 
 # Depth first search of Phase 1 with a threshold
@@ -405,11 +425,11 @@ def phase1_dfs(depth, eo, co, uds, last_turn, last_turn_2):
 		return -1
 
 	# Do every turn to this node
-	for turn_index in range(18):
+	for turn_index in range(len(p1_moves)):
 		if (last_turn != -1 and ((turn_index//3 == last_turn//3) or (last_turn_2 != -1 and (last_turn//3 + 3 == last_turn_2//3 or last_turn//3 == last_turn_2//3 + 3) and (turn_index//3 == last_turn_2//3)))):
 			continue # Avoid turns which cancel out (e.g. U U2 or F' B F2)
 
-		result[depth] = turn_index
+		result[depth] = p1_moves[turn_index]
 		
 		new_eo = eo_move_table[eo][turn_index]
 		new_co = co_move_table[co][turn_index]
@@ -417,7 +437,7 @@ def phase1_dfs(depth, eo, co, uds, last_turn, last_turn_2):
 		if new_eo == 0 and new_co == 0 and new_uds == 0:
 			return 0 # Phase 1 solution found
  
-		dfs_result = phase1_dfs(depth+1, new_eo, new_co, new_uds, turn_index, last_turn)
+		dfs_result = phase1_dfs(depth+1, new_eo, new_co, new_uds, p1_moves[turn_index], last_turn)
 		if dfs_result > -1:
 			return dfs_result + 1
 		
@@ -461,7 +481,7 @@ def solve(cube):
 	# If Phase 1 is not already solved, run Phase 1 solver
 	if get_eo(cube) != 0 or get_co(cube) != 0 or get_uds(cube) != 0:
 		dfs_result = -1
-		threshold = 2
+		threshold = 0
 		while dfs_result == -1:
 			lowest_pruned = 99999999
 			dfs_result = phase1_dfs(0, get_eo(cube), get_co(cube), get_uds(cube), -1, -1)
@@ -475,7 +495,7 @@ def solve(cube):
 	# If Phase 2 is not already solved, run Phase 2 solver
 	if get_ep8(cube) != 0 or get_cp(cube) != 0 or get_ep4(cube) != 0:
 		dfs_result = -1
-		threshold = 2
+		threshold = 0
 		while dfs_result == -1:
 			lowest_pruned = 99999999
 			dfs_result = phase2_dfs(0, get_ep8(cube), get_cp(cube), get_ep4(cube), -1, -1)
@@ -492,3 +512,5 @@ while True:
 	scramble = input()
 	cube = scramble_to_cube(scramble)
 	print(turns_to_string(solve(cube)))
+
+
